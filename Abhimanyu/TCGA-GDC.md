@@ -2,13 +2,15 @@
 
 ## Sample Sheet to DataFrame
 ```py
-from UtilityLib import PM as T0104
-T0104.set_project_paths([r"PATH_TO_DIR"]) # r"D:\datadrive\folder1"
+from UtilityLib import ProjectManager
+T0104 = ProjectManager(path_base=r"C:\Users\Abhimanyu\OneDrive\Desktop\GenomicData\TCGA")
 
-_sample_sheet = T0104.pd_tsv(T0104.find_files(T0104.get_path(), "gdc_sample_sheet*.tsv")[0])
+
+_sample_sheet = T0104.pd_tsv(T0104.find_files(T0104.get_path(), "gdc_manifest*")[0])
 _sample_sheet.columns = [_col.replace(' ', '_') for _col in _sample_sheet.columns]
 T0104.pd_excel(T0104.get_path("sample-data.xlsx"), _sample_sheet, "Samples")
-print(_sample_sheet.head(2))
+_sample_sheet.head(2)
+
 ```
 
 ## Metadata to DataFrame
@@ -38,10 +40,7 @@ _metadata.head(2)
 ## Expression File to DataFrame
 
 ```python
-from UtilityLib import PM as T0104
-T0104.set_project_paths([r"PATH_TO_DIR"]) # r"D:\datadrive\folder1"
-
-_expression_files = T0104.find_files(T0104.get_path('downloads'), "*/*quantification.txt")
+_expression_files = T0104.find_files(T0104.get_path(), "*/*tsv")
 
 _expression_path = T0104.get_path('expression.pkl.gz')
 if T0104.exists(_expression_path):
@@ -50,10 +49,12 @@ else:
     _expression_df = None
     for _f in T0104.PB(_expression_files):
         _fn = T0104.filename(_f, with_ext=True)
-        _df = T0104.pd_tsv(_f)
+        _df = T0104.PD.read_csv(_f, sep="\t", header=1)
+        _df = _df[~_df.gene_id.str.startswith('N_')].copy()
+
         _df['FileName'] = _fn
         _expression_df = _df if _expression_df is None else T0104.PD.concat([_expression_df, _df], axis=0)
 
-print(_expression_df.head(2))
+# print(_expression_df.head(2))
 
 ```
