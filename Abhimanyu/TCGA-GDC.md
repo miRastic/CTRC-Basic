@@ -40,21 +40,35 @@ _metadata.head(2)
 ## Expression File to DataFrame
 
 ```python
-_expression_files = T0104.find_files(T0104.get_path(), "*/*tsv")
 
-_expression_path = T0104.get_path('expression.pkl.gz')
+
+# For star count
+if not isinstance(T0104.config.exp.star_files, (list, tuple)):
+    T0104.config.exp.star_files = []
+
+_expression_path = T0104.get_path('expression-star-count.pkl.gz')
 if T0104.exists(_expression_path):
     _expression_df = T0104.unpickle(_expression_path)
 else:
-    _expression_df = None
-    for _f in T0104.PB(_expression_files):
-        _fn = T0104.filename(_f, with_ext=True)
-        _df = T0104.PD.read_csv(_f, sep="\t", header=1)
-        _df = _df[~_df.gene_id.str.startswith('N_')].copy()
+    T0104.validate_dir(T0104.get_path('Read-Chunks'))
+    _chunk_size = 50
+    _expression_files = T0104.find_files(T0104.get_path(), "*/*tsv")
+    _chunk_list = list(T0104.chunks(_expression_files, _chunk_size))
+    for _chunk_idx, _file_set in T0104.PB(enumerate(_chunk_list), total=len(_chunk_list)):
+        _chunk_path = T0104.get_path(f'Read-Chunks/File-Chunk-{_chunk_idx}.pkl.gz')
+        if T0104.exists(_chunk_path):
+            continue
+        _expression_df = None
+        for _f in _file_set:
+            _fn = T0104.filename(_f, with_ext=True)
+            if _f in T0104.config.exp.star_files:
+                continue
+            _df = T0104.pd_tsv(_f)
+            _df['FileName'] = _fn
+            _expression_df = _df if _expression_df is None else T0104.PD.concat([_expression_df, _df], axis=0)
+            T0104.config.exp.star_files.append(_fn)
+        _expression_df.to_pickle(_chunk_path)
 
-        _df['FileName'] = _fn
-        _expression_df = _df if _expression_df is None else T0104.PD.concat([_expression_df, _df], axis=0)
-
-# print(_expression_df.head(2))
+_expression_df.head(2)
 
 ```
