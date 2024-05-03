@@ -41,7 +41,6 @@ _metadata.head(2)
 
 ```python
 
-
 # For star count
 if not isinstance(T0104.config.exp.star_files, (list, tuple)):
     T0104.config.exp.star_files = []
@@ -50,25 +49,34 @@ _expression_path = T0104.get_path('expression-star-count.pkl.gz')
 if T0104.exists(_expression_path):
     _expression_df = T0104.unpickle(_expression_path)
 else:
-    T0104.validate_dir(T0104.get_path('Read-Chunks'))
-    _chunk_size = 50
-    _expression_files = T0104.find_files(T0104.get_path(), "*/*tsv")
-    _chunk_list = list(T0104.chunks(_expression_files, _chunk_size))
-    for _chunk_idx, _file_set in T0104.PB(enumerate(_chunk_list), total=len(_chunk_list)):
-        _chunk_path = T0104.get_path(f'Read-Chunks/File-Chunk-{_chunk_idx}.pkl.gz')
-        if T0104.exists(_chunk_path):
+  T0104.validate_dir(T0104.get_path('Read-Chunks'))
+  _chunk_size = 50
+  _expression_files = T0104.find_files(T0104.get_path('downloads'), "*/*tsv")
+  _chunk_list = list(enumerate(T0104.chunks(_expression_files, _chunk_size)))
+  _chunk_paths = []
+  for _chunk_idx, _file_set in T0104.PB(_chunk_list, total=len(_chunk_list)):
+    _chunk_path = T0104.get_path(f'Read-Chunks/File-Chunk-{_chunk_idx}.pkl.gz')
+    _chunk_paths.append(_chunk_path)
+    if T0104.exists(_chunk_path):
+        continue
+    _expression_df = None
+    for _f in _file_set:
+        _fn = T0104.filename(_f, with_ext=True)
+        if _f in T0104.config.exp.star_files:
             continue
-        _expression_df = None
-        for _f in _file_set:
-            _fn = T0104.filename(_f, with_ext=True)
-            if _f in T0104.config.exp.star_files:
-                continue
-            _df = T0104.pd_tsv(_f)
-            _df['FileName'] = _fn
-            _expression_df = _df if _expression_df is None else T0104.PD.concat([_expression_df, _df], axis=0)
-            T0104.config.exp.star_files.append(_fn)
-        _expression_df.to_pickle(_chunk_path)
+        _df = T0104.pd_tsv(_f)
+        _df['FileName'] = _fn
+        _expression_df = _df if _expression_df is None else T0104.PD.concat([_expression_df, _df], axis=0)
+        T0104.config.exp.star_files.append(_fn)
 
-_expression_df.head(2)
+    _expression_df.to_pickle(_chunk_path)
+    T0104.update_config()
+
+  # Combine all the chunks
+  _combined_exp_df = None
+  for _cp in T0104.PB(_chunk_paths):
+    _df = T0104.unpickle(_cp)
+    _combined_exp_df = _df if _combined_exp_df is None else T0104.PD.concat([_combined_exp_df, _df], axis=0)
+  _combined_exp_df.to_pickle(_expression_path)
 
 ```
